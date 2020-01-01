@@ -182,6 +182,8 @@
         })
 
         window.addEventListener('click', function(){setAverageColor(global_imageData)});
+        
+        // window.addEventListener('click', function(){clicks()});
     }
 
     function onResize(){

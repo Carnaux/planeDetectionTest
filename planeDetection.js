@@ -13,14 +13,173 @@ let avgColor = {
     b: -1
 }
 
-function rgbToGrayscale(frame, inFrame){
+let ag = false;
+let debugTxt = "";
+
+function setToBW(imgData, outFrame){
+    let brightness = detectBrightness(imgData.data);
+    debugTxt += " lvl: " + toString(brightness) + " ";
+    console.log(brightness)
+    if(avgColor.r != -1){
+        for (let x = 0; x < imgData.width; x++){
+            for (let y = 0; y < imgData.height; y++){
+                const pos = (x + y * imgData.width) * 4;
+      
+                const r1 = imgData.data[pos];
+                const g1 = imgData.data[pos + 1];
+                const b1 = imgData.data[pos + 2];
+                const a = imgData.data[pos + 3];
+                let colorObj = gammaCorrection(brightness, r1, g1, b1);
+
+                // outFrame[pos] = colorObj.r;
+                // outFrame[pos+1] = colorObj.g;
+                // outFrame[pos+2] = colorObj.b;
+                // outFrame[pos+3] = a; 
+
+                // const d = distSq(r1, g1, b1, avgColor.r, avgColor.g, avgColor.b);
+                const d = distSq(colorObj.r, colorObj.g, colorObj.b, avgColor.r, avgColor.g, avgColor.b);
+                
+                if (d < threshold * threshold) {
+                    outFrame[pos] = 255;
+                    outFrame[pos+1] = 255;
+                    outFrame[pos+2] = 255;
+                    outFrame[pos+3] = a;
+                }else{
+                    outFrame[pos] = 0;
+                    outFrame[pos+1] = 0;
+                    outFrame[pos+2] = 0;
+                    outFrame[pos+3] = a;
+                }
+                
+                applyGauBlur(x, y,imgData.width, pos, outFrame)
+            }
+        }  
+    }
+
+    // if(ag){
+    //     for (let x = 0; x < imgData.width; x++){
+    //         for (let y = 0; y < imgData.height; y++){
+    //             const pos = (x + y * imgData.width) * 4;
+      
+    //             const r1 = imgData.data[pos];
+    //             const g1 = imgData.data[pos + 1];
+    //             const b1 = imgData.data[pos + 2];
+    //             const a = imgData.data[pos + 3];
+    //             let colorObj = gammaCorrection(brightness, r1, g1, b1);
+
+    //             outFrame[pos] = colorObj.r;
+    //             outFrame[pos+1] = colorObj.g;
+    //             outFrame[pos+2] = colorObj.b;
+    //             outFrame[pos+3] = a; 
+    //         }
+    //     }
+    // }else{
+    //     for (let x = 0; x < imgData.width; x++){
+    //         for (let y = 0; y < imgData.height; y++){
+    //             const pos = (x + y * imgData.width) * 4;
+      
+    //             const r1 = imgData.data[pos];
+    //             const g1 = imgData.data[pos + 1];
+    //             const b1 = imgData.data[pos + 2];
+    //             const a = imgData.data[pos + 3];
+               
+
+    //             outFrame[pos] = r1;
+    //             outFrame[pos+1] = g1;
+    //             outFrame[pos+2] = b1;
+    //             outFrame[pos+3] = a; 
+    //         }
+    //     }
+    // }
+       
+    document.getElementById("debug").textContent = debugTxt;
+}
+
+// function clicks(){
+//     ag = !ag;
+//     console.log(ag)
+// }
+
+function applyGauBlur(x, y, currentPos, width, outFrame){
+  
+    let tot = 0;
+    for(let k = 0; k < boxFilter.length; k++){
+        let coord = boxFilterCoord[k];
+        const pos = ((x + coord.x) + (y + coord.y) * width) * 4;
+        if(outFrame[pos] != undefined){
+            tot += outFrame[currentPos]*boxFilter[k];
+        }
+    }
+    outFrame[currentPos] = tot;
+}
+
+function detectBrightness(frame){
+    let totBrightness = 0;
     for(let i = 0; i < frame.length; i+=4){
         var avg = (frame[i] + frame[i + 1] + frame[i + 2]) / 3;
-        inFrame[i] = avg;
-        inFrame[i+1] = avg;
-        inFrame[i+2] = avg;
-        inFrame[i+3] = frame[i+3];
+        totBrightness += avg;
     }
+    totBrightness = totBrightness/(frame.length/4);
+    if(totBrightness < 102){
+        if(totBrightness < 51){
+            return 1
+        }else{
+            return 2
+        }
+    }else if(totBrightness > 102 && totBrightness < 153){
+       return 3
+    }else if(totBrightness > 153){
+        if(totBrightness > 204){
+            return 5
+        }else{
+            return 4
+        }
+    }
+    // lvl 1
+    // 0 - 51
+    // lvl 2
+    // 51 - 102
+    // lvl 3
+    // 102 - 153
+    // lvl 4
+    // 153 - 204
+    // lvl 5
+    // 204 - 255
+
+}
+
+function gammaCorrection(lvl, r, g, b){
+    let gamma = 1;
+    switch(lvl){
+        case 1:
+            gamma = 1.8;
+            break;
+        case 2: 
+            gamma = 1.3;
+            break;
+        case 3: 
+            gamma = 1;
+            break;
+        case 4:
+            gamma = 0.5;
+            break;
+        case 5:
+            gamma = 0.2;
+            break;
+    }
+
+   
+    let newR = 255 * Math.pow(r/255 , 1/gamma);
+    let newG = 255 * Math.pow(g/255 , 1/gamma);
+    let newB = 255 * Math.pow(b/255 , 1/gamma);
+
+    return obj = {
+        gamma: gamma,
+        r: newR,
+        g: newG,
+        b: newB
+    }
+    
 }
 
 function setAverageColor(imgData){
@@ -74,49 +233,7 @@ function setAverageColor(imgData){
     videoAr.style.display = "none";
 }
 
-function setToBW(imgData, inFrame){
-    if(avgColor.r != -1){
-        for (let x = 0; x < imgData.width; x++){
-            for (let y = 0; y < imgData.height; y++){
-                const pos = (x + y * imgData.width) * 4;
-      
-                const r1 = imgData.data[pos];
-                const g1 = imgData.data[pos + 1];
-                const b1 = imgData.data[pos + 2];
-                const d = distSq(r1, g1, b1, avgColor.r, avgColor.g, avgColor.b);
-                
-                if (d < threshold * threshold) {
-                    inFrame[pos] = 255;
-                    inFrame[pos+1] = 255;
-                    inFrame[pos+2] = 255;
-                    inFrame[pos+3] = 255
-                }else{
-                    inFrame[pos] = 0;
-                    inFrame[pos+1] = 0;
-                    inFrame[pos+2] = 0;
-                    inFrame[pos+3] = 255
-                }
-
-                applyGauBlur(x, y,imgData.width, pos, inFrame)
-            }
-        }  
-    }
-}
-
-function applyGauBlur(x, y, currentPos, width, inFrame){
-  
-    let tot = 0;
-    for(let k = 0; k < boxFilter.length; k++){
-        let coord = boxFilterCoord[k];
-        const pos = ((x + coord.x) + (y + coord.y) * width) * 4;
-        if(inFrame[pos] != undefined){
-            tot += inFrame[currentPos]*boxFilter[k];
-        }
-    }
-    inFrame[currentPos] = tot;
-}
-
-function findBlobs(imgData, inFrame){
+function findBlobs(imgData, outFrame){
     const currentBlobs = [];
     for (let x = 0; x < imgData.width; x++){
         for (let y = 0; y < imgData.height; y++){

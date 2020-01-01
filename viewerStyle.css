@@ -2,3 +2,8 @@ body{
     margin: 0;
     overflow: hidden;
 }
+#debug{
+    position: absolute;
+    font-size: 20px;
+    color: black;
+}

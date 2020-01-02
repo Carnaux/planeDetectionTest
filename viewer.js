@@ -195,13 +195,6 @@
     }
     
     function getFrame(){
-        // navigator.mediaDevices.getUserMedia({ audio: false, video: true})
-        // .then(function(stream) {
-           
-        // })
-        // .catch(function(err) {
-        //    /* handle the error */
-        // });
         let result = document.getElementById("result");
 
         let threeCanvas = document.getElementById("threeCanvas");

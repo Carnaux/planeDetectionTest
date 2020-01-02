@@ -57,7 +57,10 @@ function setToBW(imgData, outFrame){
     }
 
     let blob = findBlobs(imgData.width, imgData.height, outFrame);
-    extractBorders(blob, imgData.width, imgData.height, outFrame)
+    if(blob != null){
+        extractBorders(blob, imgData.width, imgData.height, outFrame);
+    }
+   
 
 }
 
@@ -231,7 +234,7 @@ function findBlobs(w, h, outFrame){
     }
 
     for (let i = currentBlobs.length - 1; i >= 0; i--) {
-        if (currentBlobs[i].size() < 3000) {
+        if (currentBlobs[i].n < 2000) {
             currentBlobs.splice(i, 1);
         }
     }
@@ -304,11 +307,45 @@ function findBlobs(w, h, outFrame){
     if(blobs.length > 0){
        return blobs[0];
     }
-
+    
 }
 
 function extractBorders(blob, w, h, outFrame){
-    
+    let borderArr = [];
+    for(let i = 0; i < blob.pixelArr.length; i++) {
+        let currentPixel = blob.pixelArr[i];
+        let colors = [];
+        let bl = 1;
+        let wi = 1;
+
+        for(let j = 0; j < boxFilterCoord.length; j++){
+            let coord = boxFilterCoord[j];
+            const pos = ((currentPixel.x + coord.x) + (currentPixel.y + coord.y) * w) * 4;
+            if(currentPixel.p != pos){
+                if(outFrame[pos] == 255){
+                    wi++;
+                }else{
+                    bl++;
+                }
+                colors.push(outFrame[pos]);
+            }
+        }
+        
+        let ratio = wi/bl;
+        
+        if(ratio.toPrecision(2) != 9 && ratio.toPrecision(3) != 0.11){
+            outFrame[currentPixel.p] = 255;
+            outFrame[currentPixel.p + 1] = 0;
+            outFrame[currentPixel.p + 2] = 0;
+            outFrame[currentPixel.p + 3] = 255;
+            borderArr.push(currentPixel);
+        }else{
+            outFrame[currentPixel.p] = 0;
+            outFrame[currentPixel.p + 1] = 0;
+            outFrame[currentPixel.p + 2] = 0;
+            outFrame[currentPixel.p + 3] = 255;
+        }
+    }
 
 }
 

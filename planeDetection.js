@@ -1,9 +1,18 @@
-let threshold = 60;
+let threshold = 70;
 let distThreshold = 50;
+
+let sobelKx = [ -1, 0, 1,
+                -2, 0, 2,
+                -1, 0, 1];
+
+let sobelKy = [ 1, 2, 1,
+                0, 0, 0,
+                -1, 2, -1];
 
 let boxFilter = [0.111, 0.111, 0.111,
                  0.111, 0.111, 0.111,
                  0.111, 0.111, 0.111 ];
+
 let boxFilterCoord = [{x:-1, y:-1}, {x:0, y:-1}, {x:+1, y:-1},
                       {x:-1, y:0}, {x:0, y:0}, {x:+1, y:0},
                       {x:-1, y:+1}, {x:0, y:+1}, {x:+1, y:+1}];
@@ -12,7 +21,7 @@ let avgColor = {
     r: -1,
     g: -1,
     b: -1
-}
+};
 let blobCounter = 0;
 let blobs = [];
 let found = false;
@@ -58,14 +67,14 @@ function setToBW(imgData, outFrame){
 
     let blob = findBlobs(imgData.width, imgData.height, outFrame);
     if(blob != null){
-        extractBorders(blob, imgData.width, imgData.height, outFrame);
+        let arrays = sobelFilters(imgData.width, imgData.height, outFrame);
+        let frame_4byte = to4byteBW(arrays.g, imgData.width, imgData.height);
+        setToOut(frame_4byte, outFrame)
+        // extractBorders(blob, imgData.width, imgData.height, outFrame);
     }
-   
-
 }
 
 function applyGauBlur(x, y, currentPos, width, outFrame){
-  
     let tot = 0;
     for(let k = 0; k < boxFilter.length; k++){
         let coord = boxFilterCoord[k];
@@ -74,7 +83,7 @@ function applyGauBlur(x, y, currentPos, width, outFrame){
             tot += outFrame[currentPos]*boxFilter[k];
         }
     }
-    outFrame[currentPos] = tot;
+    outFrame[currentPos] = tot/9;
 }
 
 function detectBrightness(frame){
@@ -310,43 +319,120 @@ function findBlobs(w, h, outFrame){
     
 }
 
-function extractBorders(blob, w, h, outFrame){
-    let borderArr = [];
-    for(let i = 0; i < blob.pixelArr.length; i++) {
-        let currentPixel = blob.pixelArr[i];
-        let colors = [];
-        let bl = 1;
-        let wi = 1;
+function sobelFilters(w, h, outFrame){
+    console.log(w, h)
+    let frame_1byte = to1byteBW(outFrame);
 
-        for(let j = 0; j < boxFilterCoord.length; j++){
-            let coord = boxFilterCoord[j];
-            const pos = ((currentPixel.x + coord.x) + (currentPixel.y + coord.y) * w) * 4;
-            if(currentPixel.p != pos){
-                if(outFrame[pos] == 255){
-                    wi++;
-                }else{
-                    bl++;
+    let iX = [];
+    let iY = [];
+    for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) {
+            const currentPos = (x + y * w);
+            let totX = 0;
+            let totY = 0;
+            for(let k = 0; k < boxFilterCoord.length; k++){
+                let coord = boxFilterCoord[k];
+                const pos = ((x + coord.x) + (y + coord.y) * w);
+                if(frame_1byte[pos] != undefined){
+                    totX += frame_1byte[currentPos]*sobelKx[k];
+                    totY += frame_1byte[currentPos]*sobelKy[k];
                 }
-                colors.push(outFrame[pos]);
             }
-        }
-        
-        let ratio = wi/bl;
-        
-        if(ratio.toPrecision(2) != 9 && ratio.toPrecision(3) != 0.11){
-            outFrame[currentPixel.p] = 255;
-            outFrame[currentPixel.p + 1] = 0;
-            outFrame[currentPixel.p + 2] = 0;
-            outFrame[currentPixel.p + 3] = 255;
-            borderArr.push(currentPixel);
-        }else{
-            outFrame[currentPixel.p] = 0;
-            outFrame[currentPixel.p + 1] = 0;
-            outFrame[currentPixel.p + 2] = 0;
-            outFrame[currentPixel.p + 3] = 255;
+            iX[currentPos] = (totX/9);
+            iY[currentPos] = (totY/9);
         }
     }
 
+    let gradient = [];
+    let edgeDirection = [];
+    for(let i = 0; i < iX.length; i++){
+        let g = Math.sqrt((iX[i] * iX[i]) + (iY[i] * iY[i]));
+        let theta = Math.atan(iY[i]/iX[i]);
+
+        gradient.push(g);
+        edgeDirection.push(theta);
+    }
+    
+    
+    return obj = {
+        g: gradient,
+        t: edgeDirection
+    }
+}
+
+// function extractBorders(blob, w, h, outFrame){
+//     let borderArr = [];
+//     for(let i = 0; i < blob.pixelArr.length; i++) {
+//         let currentPixel = blob.pixelArr[i];
+//         let colors = [];
+//         let bl = 1;
+//         let wi = 1;
+
+//         for(let j = 0; j < boxFilterCoord.length; j++){
+//             let coord = boxFilterCoord[j];
+//             const pos = ((currentPixel.x + coord.x) + (currentPixel.y + coord.y) * w) * 4;
+//             if(currentPixel.p != pos){
+//                 if(outFrame[pos] == 255){
+//                     wi++;
+//                 }else{
+//                     bl++;
+//                 }
+//                 colors.push(outFrame[pos]);
+//             }
+//         }
+        
+//         let ratio = wi/bl;
+        
+//         if(ratio.toPrecision(2) != 9 && ratio.toPrecision(3) != 0.11){
+//             // outFrame[currentPixel.p] = 255;
+//             // outFrame[currentPixel.p + 1] = 0;
+//             // outFrame[currentPixel.p + 2] = 0;
+//             // outFrame[currentPixel.p + 3] = 255;
+//             borderArr.push(currentPixel);
+//         }else{
+//             // outFrame[currentPixel.p] = 0;
+//             // outFrame[currentPixel.p + 1] = 0;
+//             // outFrame[currentPixel.p + 2] = 0;
+//             // outFrame[currentPixel.p + 3] = 255;
+//         }
+//     }
+
+//      for(let x = 0; x < w; x++){
+//         for (let y = 0; y < h; y++){
+//             const pos = (x + y * w) * 4;
+//             outFrame[pos] = 0;
+//             outFrame[pos + 1] = 0;
+//             outFrame[pos + 2] = 0;
+//             outFrame[pos + 3] = 255;
+//         }
+//     }
+
+//     for(let i = 0; i < borderArr.length; i++) {
+//         outFrame[borderArr[i].p] = 255;
+//         outFrame[borderArr[i].p + 1] = 0;
+//         outFrame[borderArr[i].p + 2] = 0;
+//         outFrame[borderArr[i].p + 3] = 255;
+//     }
+// }
+
+function to1byteBW(frame){
+    let newFrame = [];
+    for(let i = 0; i < frame.length; i+=4){
+        newFrame.push(frame[i]);
+    }
+
+    return newFrame;
+}
+
+function to4byteBW(frame, w, h){
+    let newFrame = [];
+    for(let i = 0; i < w*h; i+=4){
+        newFrame[i] = frame[i];
+        newFrame[i + 1] = frame[i];
+        newFrame[i + 2] = frame[i];
+        newFrame[i + 3] = 255;
+    }
+    return newFrame;
 }
 
 function distSq(a1, b1, c1, a2, b2, c2) {
@@ -369,6 +455,15 @@ function distSq(a1, b1, c1, a2, b2, c2) {
     const d =
       (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) + (z1 - z2) * (z1 - z2);
     return d;
+}
+
+function setToOut(frame, outFrame){
+    for(let i = 0; i < frame.length; i+=4){
+       outFrame[i] = frame[i];
+       outFrame[i + 1] = frame[i];
+       outFrame[i + 2] = frame[i];
+       outFrame[i + 3] = 255;
+    }
 }
 
 // function clicks(){

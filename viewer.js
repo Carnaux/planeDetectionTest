@@ -202,30 +202,31 @@
         
         let videoAr = document.getElementById("videoAr");
         
-        let w = videoAr.style.width;
-        let h =  videoAr.style.height;
-        // console.log(w,h)
-        result.style.width = w;
-        result.style.height = h;
-        result.style.marginLeft = threeCanvas.style.marginLeft;
-        result.style.marginTop = threeCanvas.style.marginTop;
+        if(document.getElementById("videoAr") != null){
+            let w = videoAr.style.width;
+            let h =  videoAr.style.height;
+            // console.log(w,h)
+            result.style.width = w;
+            result.style.height = h;
+            result.style.marginLeft = threeCanvas.style.marginLeft;
+            result.style.marginTop = threeCanvas.style.marginTop;
 
-        let resultctx = result.getContext('2d');
-        resultctx.drawImage(videoAr,0,0, 300,150);
-        
-        // videoAr.style.display = "none";
-        
-        let imageData = resultctx.getImageData(0, 0, 300,150);
-        global_imageData = imageData;
-        var grayImageData = resultctx.createImageData(imageData);
-        global_grayImageData = grayImageData;
-        // rgbToGrayscale(imageData.data, grayImageData.data);
-        setToBW(imageData, grayImageData.data);
-        // applyGauBlur(imageData, grayImageData.data);
-        resultctx.putImageData(grayImageData, 0, 0);
-        // resultctx.clearRect(0,0,300,150);
-        // console.log(grayData)
-        
+            let resultctx = result.getContext('2d');
+            resultctx.drawImage(videoAr,0,0, 300,150);
+            
+            // videoAr.style.display = "none";
+            
+            let imageData = resultctx.getImageData(0, 0, 300,150);
+            global_imageData = imageData;
+            var grayImageData = resultctx.createImageData(imageData);
+            global_grayImageData = grayImageData;
+            // rgbToGrayscale(imageData.data, grayImageData.data);
+            setToBW(imageData, grayImageData.data);
+            // applyGauBlur(imageData, grayImageData.data);
+            resultctx.putImageData(grayImageData, 0, 0);
+            // resultctx.clearRect(0,0,300,150);
+            // console.log(grayData)
+        }
     }
 
  

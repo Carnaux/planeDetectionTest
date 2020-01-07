@@ -1,14 +1,6 @@
 let threshold = 70;
 let distThreshold = 50;
 
-let sobelKx = [ -1, 0, 1,
-                -2, 0, 2,
-                -1, 0, 1];
-
-let sobelKy = [ 1, 2, 1,
-                0, 0, 0,
-                -1, 2, -1];
-
 let boxFilter = [0.111, 0.111, 0.111,
                  0.111, 0.111, 0.111,
                  0.111, 0.111, 0.111 ];
@@ -68,11 +60,11 @@ function setToBW(imgData, outFrame){
 
     let blob = findBlobs(imgData.width, imgData.height, outFrame);
     if(blob != null){
-        let arrays = marchingSquares(outFrame, imgData.width, imgData.height);
+        let arrays = marchingSquares(blob, outFrame, imgData.width, imgData.height);
         let frame_4byte = to4byteBW(arrays, imgData.width, imgData.height);
         
         setToOut(frame_4byte, outFrame);
-        // extractBorders(blob, imgData.width, imgData.height, outFrame);
+        
     }
 }
 
@@ -316,63 +308,122 @@ function findBlobs(w, h, outFrame){
     }
 
     if(blobs.length > 0){
+        // for (let x = 0; x < w; x++) {
+        //     for (let y = 0; y < h; y++) {
+        //         const loc = (x + y * w) * 4;
+
+        //         outFrame[loc] = 0;
+        //         outFrame[loc + 1] = 0;
+        //         outFrame[loc + 2] = 0;
+        //         outFrame[loc + 3] = 255;
+        //     }
+        // }
+
+        // for(let i = 0; i < blobs[0].pixelArr.length; i++){
+        //     let loc = blobs[0].pixelArr[i].p
+        //     outFrame[loc] = 255;
+        //     outFrame[loc + 1] = 255;
+        //     outFrame[loc + 2] = 255;
+        //     outFrame[loc + 3] = 255;
+        // }
        return blobs[0];
     }
     
 }
 
-function sobelFilters(w, h, outFrame){
-    let frame_1byte = to1byteBW(outFrame);
+function marchingSquares(blob, frame, w, h){
+    let frame_1byte = to1byteBW(frame);
 
-    let iX = [];
-    let iY = [];
-    for (let x = 0; x < w; x++) {
-        for (let y = 0; y < h; y++) {
-            const currentPos = (x + y * w);
-            let totX = 0;
-            let totY = 0;
-            for(let k = 0; k < boxFilterCoord.length; k++){
-                let coord = boxFilterCoord[k];
+    let gridCoord = [{x:0, y:0}, {x:+1, y:0},
+                     {x:0, y:+1}, {x:+1, y:+1}];
+
+    let gridCaseLookup = [ "1111", "0000", "1110", "1101", "1011", "0111", "0001", "0010", "0100", "1000", "1100","1001", "0011", "0110"];
+
+    let grid = [];
+    let borderPos = [];
+    for (let x = blob.minx - 10; x < blob.maxx + 10; x++) {
+        for (let y = blob.miny - 10; y < blob.maxy + 10; y++) {
+            let gridCase = "";
+            let gridIndex = [];
+            for(let k = 0; k < gridCoord.length; k++){
+                let coord = gridCoord[k];
                 const pos = ((x + coord.x) + (y + coord.y) * w);
-                if(frame_1byte[pos] != undefined){
-                    totX += frame_1byte[currentPos]*sobelKx[k];
-                    totY += frame_1byte[currentPos]*sobelKy[k];
+
+                if(frame_1byte[pos] == 0){
+                    gridCase += "1";
+                }else{
+                    gridCase += "0";
                 }
+                gridIndex.push(pos);
             }
-            iX[currentPos] = (totX/9);
-            iY[currentPos] = (totY/9);
+            grid.push({c: gridCase, i: gridIndex});
         }
     }
 
-    let gradient = [];
-    let edgeDirection = [];
-    for(let i = 0; i < iX.length; i++){
-        let g = Math.sqrt((iX[i] * iX[i]) + (iY[i] * iY[i]));
-        let theta = Math.atan(iY[i]/iX[i]);
+    
 
-        gradient.push(g);
-        edgeDirection.push(theta);
+    for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) {
+            const pos = (x + y  * w);
+            frame_1byte[pos] = 0;
+        }
     }
-    
-    
-    return obj = {
-        g: gradient,
-        t: edgeDirection
+
+    for(let i = 0; i < grid.length; i++){
+        for(let k = 0; k < gridCaseLookup.length; k++){
+            if(grid[i].c == gridCaseLookup[k]){
+               switch(k){
+                   case 2:
+                        borderPos.push(grid[i].i[3]);
+                        break;
+                    case 3:
+                        borderPos.push(grid[i].i[2]);
+                        break;
+                    case 4:
+                        borderPos.push(grid[i].i[1]);
+                        break; 
+                    case 5:
+                        borderPos.push(grid[i].i[0]);
+                        break;
+                    case 6 || 8:
+                        borderPos.push(grid[i].i[0]);
+                        borderPos.push(grid[i].i[2]);
+                        break;
+                    case 7 || 9:
+                        borderPos.push(grid[i].i[1]);
+                        borderPos.push(grid[i].i[3]);
+                        break;
+                    case 10:
+                        borderPos.push(grid[i].i[2]);
+                        borderPos.push(grid[i].i[3]);
+                        break;
+                    case 11:
+                        borderPos.push(grid[i].i[1]);
+                        borderPos.push(grid[i].i[2]);
+                        break;
+                    case 12:
+                        borderPos.push(grid[i].i[0]);
+                        borderPos.push(grid[i].i[1]);
+                        break;
+                    case 13:
+                        borderPos.push(grid[i].i[0]);
+                        borderPos.push(grid[i].i[3]);
+                        break;
+               }
+            }
+        }   
     }
+
+    for(let i = 0; i < borderPos.length; i++){
+        for(let k = 0; k < blob.pixelArr.length; k++){
+            if(borderPos[i]*4 == blob.pixelArr[k].p){
+                frame_1byte[borderPos[i]] = 255;
+            }
+        }
+    }
+
+    return frame_1byte;
 }
-
-// function extractBorders(blob, w, h, outFrame){
-//     for (let x = 0; x < w; x++) {
-//         for (let y = 0; y < h; y++) {
-//             const currentPos = (x + y * w)*4;
-
-//             if(outFrame[currentPos] != 255 && outFrame[currentPos] != 0 ){
-//                 console.log("achou")
-//             }
-//         }
-//     }
-   
-// }
 
 function to1byteBW(frame){
     let newFrame = [];
@@ -428,107 +479,4 @@ function setToOut(frame, outFrame){
     }
 }
 
-function marchingSquares(frame, w, h){
-    let frame_1byte = to1byteBW(frame);
 
-    let gridCoord = [{x:0, y:0}, {x:+1, y:0},
-                     {x:0, y:+1}, {x:+1, y:+1}];
-
-    let gridCaseLookup = [ "1111", "0000", "1110", "1101", "1011", "0111", "0001", "0010", "0100", "1000", "1100","1001", "0011", "0110"];
-
-    let grid = [];
-    let borderPos = [];
-    for (let x = 0; x < w; x++) {
-        for (let y = 0; y < h-1; y++) {
-            let gridCase = "";
-            let gridIndex = [];
-            for(let k = 0; k < gridCoord.length; k++){
-                let coord = gridCoord[k];
-                const pos = ((x + coord.x) + (y + coord.y) * w);
-
-                if(frame_1byte[pos] == 0){
-                    gridCase += "1";
-                }else{
-                    gridCase += "0";
-                }
-                gridIndex.push(pos);
-            }
-            grid.push({c: gridCase, i: gridIndex});
-        }
-    }
-
-    for (let x = 0; x < w; x++) {
-        for (let y = 0; y < h; y++) {
-            const pos = (x + y  * w);
-            frame_1byte[pos] = 0;
-        }
-    }
-
-    for(let i = 0; i < grid.length; i++){
-        for(let k = 0; k < gridCaseLookup.length; k++){
-            if(grid[i].c == gridCaseLookup[k]){
-               switch(k){
-                   case 2:
-                        frame_1byte[grid[i].i[3]] = 255;
-                        borderPos.push(grid[i].i[3]);
-                        break;
-                    case 3:
-                        frame_1byte[grid[i].i[2]] = 255;
-                        borderPos.push(grid[i].i[2]);
-                        break;
-                    case 4:
-                        frame_1byte[grid[i].i[1]] = 255;
-                        borderPos.push(grid[i].i[1]);
-                        break; 
-                    case 5:
-                        frame_1byte[grid[i].i[0]] = 255;
-                        borderPos.push(grid[i].i[0]);
-                        break;
-                    case 6 || 8:
-                        frame_1byte[grid[i].i[0]] = 255;
-                        frame_1byte[grid[i].i[2]] = 255;
-                        borderPos.push(grid[i].i[0]);
-                        borderPos.push(grid[i].i[2]);
-                        break;
-                    case 7 || 9:
-                        frame_1byte[grid[i].i[1]] = 255;
-                        frame_1byte[grid[i].i[3]] = 255;
-                        borderPos.push(grid[i].i[1]);
-                        borderPos.push(grid[i].i[3]);
-                        break;
-                    case 10:
-                        frame_1byte[grid[i].i[2]] = 255;
-                        frame_1byte[grid[i].i[3]] = 255;
-                        borderPos.push(grid[i].i[2]);
-                        borderPos.push(grid[i].i[3]);
-                        break;
-                    case 11:
-                        frame_1byte[grid[i].i[1]] = 255;
-                        frame_1byte[grid[i].i[2]] = 255;
-                        borderPos.push(grid[i].i[1]);
-                        borderPos.push(grid[i].i[2]);
-                        break;
-                    case 12:
-                        frame_1byte[grid[i].i[0]] = 255;
-                        frame_1byte[grid[i].i[1]] = 255;
-                        borderPos.push(grid[i].i[0]);
-                        borderPos.push(grid[i].i[1]);
-                        break;
-                    case 13:
-                        frame_1byte[grid[i].i[0]] = 255;
-                        frame_1byte[grid[i].i[3]] = 255;
-                        borderPos.push(grid[i].i[0]);
-                        borderPos.push(grid[i].i[3]);
-                        break;
-               }
-            }
-        }   
-    }
-
-    return frame_1byte;
-}
-
-// function clicks(){
-//     ag = !ag;
-//     console.log(ag)
-// }

@@ -224,7 +224,7 @@
             setToBW(imageData, grayImageData.data);
             // applyGauBlur(imageData, grayImageData.data);
             resultctx.putImageData(grayImageData, 0, 0);
-            // resultctx.clearRect(0,0,300,150);
+            
             // console.log(grayData)
         }
     }

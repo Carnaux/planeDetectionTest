@@ -22,6 +22,7 @@ let avgColor = {
     g: -1,
     b: -1
 };
+
 let blobCounter = 0;
 let blobs = [];
 let found = false;
@@ -67,9 +68,10 @@ function setToBW(imgData, outFrame){
 
     let blob = findBlobs(imgData.width, imgData.height, outFrame);
     if(blob != null){
-        let arrays = sobelFilters(imgData.width, imgData.height, outFrame);
-        let frame_4byte = to4byteBW(arrays.g, imgData.width, imgData.height);
-        setToOut(frame_4byte, outFrame)
+        let arrays = marchingSquares(outFrame, imgData.width, imgData.height);
+        let frame_4byte = to4byteBW(arrays, imgData.width, imgData.height);
+        
+        setToOut(frame_4byte, outFrame);
         // extractBorders(blob, imgData.width, imgData.height, outFrame);
     }
 }
@@ -320,7 +322,6 @@ function findBlobs(w, h, outFrame){
 }
 
 function sobelFilters(w, h, outFrame){
-    console.log(w, h)
     let frame_1byte = to1byteBW(outFrame);
 
     let iX = [];
@@ -361,58 +362,16 @@ function sobelFilters(w, h, outFrame){
 }
 
 // function extractBorders(blob, w, h, outFrame){
-//     let borderArr = [];
-//     for(let i = 0; i < blob.pixelArr.length; i++) {
-//         let currentPixel = blob.pixelArr[i];
-//         let colors = [];
-//         let bl = 1;
-//         let wi = 1;
+//     for (let x = 0; x < w; x++) {
+//         for (let y = 0; y < h; y++) {
+//             const currentPos = (x + y * w)*4;
 
-//         for(let j = 0; j < boxFilterCoord.length; j++){
-//             let coord = boxFilterCoord[j];
-//             const pos = ((currentPixel.x + coord.x) + (currentPixel.y + coord.y) * w) * 4;
-//             if(currentPixel.p != pos){
-//                 if(outFrame[pos] == 255){
-//                     wi++;
-//                 }else{
-//                     bl++;
-//                 }
-//                 colors.push(outFrame[pos]);
+//             if(outFrame[currentPos] != 255 && outFrame[currentPos] != 0 ){
+//                 console.log("achou")
 //             }
 //         }
-        
-//         let ratio = wi/bl;
-        
-//         if(ratio.toPrecision(2) != 9 && ratio.toPrecision(3) != 0.11){
-//             // outFrame[currentPixel.p] = 255;
-//             // outFrame[currentPixel.p + 1] = 0;
-//             // outFrame[currentPixel.p + 2] = 0;
-//             // outFrame[currentPixel.p + 3] = 255;
-//             borderArr.push(currentPixel);
-//         }else{
-//             // outFrame[currentPixel.p] = 0;
-//             // outFrame[currentPixel.p + 1] = 0;
-//             // outFrame[currentPixel.p + 2] = 0;
-//             // outFrame[currentPixel.p + 3] = 255;
-//         }
 //     }
-
-//      for(let x = 0; x < w; x++){
-//         for (let y = 0; y < h; y++){
-//             const pos = (x + y * w) * 4;
-//             outFrame[pos] = 0;
-//             outFrame[pos + 1] = 0;
-//             outFrame[pos + 2] = 0;
-//             outFrame[pos + 3] = 255;
-//         }
-//     }
-
-//     for(let i = 0; i < borderArr.length; i++) {
-//         outFrame[borderArr[i].p] = 255;
-//         outFrame[borderArr[i].p + 1] = 0;
-//         outFrame[borderArr[i].p + 2] = 0;
-//         outFrame[borderArr[i].p + 3] = 255;
-//     }
+   
 // }
 
 function to1byteBW(frame){
@@ -426,12 +385,15 @@ function to1byteBW(frame){
 
 function to4byteBW(frame, w, h){
     let newFrame = [];
-    for(let i = 0; i < w*h; i+=4){
-        newFrame[i] = frame[i];
-        newFrame[i + 1] = frame[i];
-        newFrame[i + 2] = frame[i];
-        newFrame[i + 3] = 255;
+
+    for(let i = 0; i < frame.length; i++){
+        let id = i * 4;
+        newFrame[id] = frame[i];
+        newFrame[id + 1] = frame[i];
+        newFrame[id + 2] = frame[i];
+        newFrame[id + 3] = 255;
     }
+
     return newFrame;
 }
 
@@ -464,6 +426,106 @@ function setToOut(frame, outFrame){
        outFrame[i + 2] = frame[i];
        outFrame[i + 3] = 255;
     }
+}
+
+function marchingSquares(frame, w, h){
+    let frame_1byte = to1byteBW(frame);
+
+    let gridCoord = [{x:0, y:0}, {x:+1, y:0},
+                     {x:0, y:+1}, {x:+1, y:+1}];
+
+    let gridCaseLookup = [ "1111", "0000", "1110", "1101", "1011", "0111", "0001", "0010", "0100", "1000", "1100","1001", "0011", "0110"];
+
+    let grid = [];
+    let borderPos = [];
+    for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h-1; y++) {
+            let gridCase = "";
+            let gridIndex = [];
+            for(let k = 0; k < gridCoord.length; k++){
+                let coord = gridCoord[k];
+                const pos = ((x + coord.x) + (y + coord.y) * w);
+
+                if(frame_1byte[pos] == 0){
+                    gridCase += "1";
+                }else{
+                    gridCase += "0";
+                }
+                gridIndex.push(pos);
+            }
+            grid.push({c: gridCase, i: gridIndex});
+        }
+    }
+
+    for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) {
+            const pos = (x + y  * w);
+            frame_1byte[pos] = 0;
+        }
+    }
+
+    for(let i = 0; i < grid.length; i++){
+        for(let k = 0; k < gridCaseLookup.length; k++){
+            if(grid[i].c == gridCaseLookup[k]){
+               switch(k){
+                   case 2:
+                        frame_1byte[grid[i].i[3]] = 255;
+                        borderPos.push(grid[i].i[3]);
+                        break;
+                    case 3:
+                        frame_1byte[grid[i].i[2]] = 255;
+                        borderPos.push(grid[i].i[2]);
+                        break;
+                    case 4:
+                        frame_1byte[grid[i].i[1]] = 255;
+                        borderPos.push(grid[i].i[1]);
+                        break; 
+                    case 5:
+                        frame_1byte[grid[i].i[0]] = 255;
+                        borderPos.push(grid[i].i[0]);
+                        break;
+                    case 6 || 8:
+                        frame_1byte[grid[i].i[0]] = 255;
+                        frame_1byte[grid[i].i[2]] = 255;
+                        borderPos.push(grid[i].i[0]);
+                        borderPos.push(grid[i].i[2]);
+                        break;
+                    case 7 || 9:
+                        frame_1byte[grid[i].i[1]] = 255;
+                        frame_1byte[grid[i].i[3]] = 255;
+                        borderPos.push(grid[i].i[1]);
+                        borderPos.push(grid[i].i[3]);
+                        break;
+                    case 10:
+                        frame_1byte[grid[i].i[2]] = 255;
+                        frame_1byte[grid[i].i[3]] = 255;
+                        borderPos.push(grid[i].i[2]);
+                        borderPos.push(grid[i].i[3]);
+                        break;
+                    case 11:
+                        frame_1byte[grid[i].i[1]] = 255;
+                        frame_1byte[grid[i].i[2]] = 255;
+                        borderPos.push(grid[i].i[1]);
+                        borderPos.push(grid[i].i[2]);
+                        break;
+                    case 12:
+                        frame_1byte[grid[i].i[0]] = 255;
+                        frame_1byte[grid[i].i[1]] = 255;
+                        borderPos.push(grid[i].i[0]);
+                        borderPos.push(grid[i].i[1]);
+                        break;
+                    case 13:
+                        frame_1byte[grid[i].i[0]] = 255;
+                        frame_1byte[grid[i].i[3]] = 255;
+                        borderPos.push(grid[i].i[0]);
+                        borderPos.push(grid[i].i[3]);
+                        break;
+               }
+            }
+        }   
+    }
+
+    return frame_1byte;
 }
 
 // function clicks(){
